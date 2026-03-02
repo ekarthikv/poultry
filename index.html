@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐔 Poultry Environment Monitoring System Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f9;
+      background-image: url('https://images.unsplash.com/photo-1612170153139-6f881ff067e0?w=1600');
+      background-size: cover;
+      background-attachment: fixed;
+      background-position: center;
+    }
+
+    #loginPage {
+      display: flex;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+      background-image: url('https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=1600');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+    }
+
+    #loginPage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 30, 80, 0.6);
+      z-index: 0;
+    }
+
+    .login-box {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 40px;
+      border-radius: 12px;
+      width: 340px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    .login-box h2 { margin-bottom: 20px; }
+
+    .login-box input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    .login-box button {
+      width: 100%;
+      padding: 10px;
+      background: #2a5298;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .login-box button:hover { background: #1e3c72; }
+
+    #mainContent { display: none; }
+
+    header {
+      background: linear-gradient(135deg, #1e3c72cc, #2a5298cc);
+      backdrop-filter: blur(6px);
+      color: white;
+      padding: 20px;
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+      position: relative;
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 3fr 1fr;
+      gap: 20px;
+      padding: 30px;
+      background: rgba(244, 246, 249, 0.82);
+      min-height: calc(100vh - 80px);
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      position: relative;
+    }
+
+    .threshold-info {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .status {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+    }
+
+    .low    { background: #2ecc71; }
+    .medium { background: #f39c12; }
+    .high   { background: #e74c3c; }
+
+    .recommendation {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+
+    .logout-btn {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      background: white;
+      color: #1e3c72;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .logout-btn:hover { background: #f0f0f0; }
+
+    #statusBar {
+      text-align: center;
+      padding: 8px;
+      font-size: 13px;
+      background: rgba(42,82,152,0.1);
+      color: #1e3c72;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginPage">
+    <div class="login-box">
+      <h2>🐔 Poultry Dashboard Login 🐣</h2>
+      <input type="text" id="username" placeholder="Username">
+      <input type="password" id="password" placeholder="Password">
+      <button onclick="checkLogin()">Login</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="mainContent">
+    <header>
+      <span style="font-size:32px; margin-right:10px;">🐔</span>
+      Poultry Environment Monitoring System Dashboard
+      <span style="font-size:32px; margin-left:10px;">🐣</span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </header>
+
+    <div id="statusBar">⏳ Fetching live data from ThingSpeak...</div>
+
+    <div class="main-container">
+      <div class="dashboard" id="dashboard"></div>
+      <div class="recommendation">
+        <h3>🌾 Key Insights & Recommendations</h3>
+        <ul id="recommendationList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ================= LOGIN ================= */
+    const VALID_USERNAME = "Poultry Owner";
+    const VALID_PASSWORD = "2@GingeePoultry";
+
+    function checkLogin() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+        document.getElementById("loginPage").style.display   = "none";
+        document.getElementById("mainContent").style.display = "block";
+        createDashboard();
+      } else {
+        alert("Invalid Username or Password");
+      }
+    }
+
+    function logout() {
+      document.getElementById("mainContent").style.display = "none";
+      document.getElementById("loginPage").style.display   = "flex";
+    }
+
+    /* ================= THINGSPEAK CONFIG ================= */
+    const CH1_ID   = "2756355";         // PM10 only
+    const CH1_READ = "UMXSG1YDIJ5V3C6L";
+
+    const CH2_ID   = "2579770";         // All other sensors
+    const CH2_READ = "SEF6A42VG4RRZV7S";
+
+    const RESULTS    = 7;
+    const REFRESH_MS = 20000;
+
+    const API_CH1 = `https://api.thingspeak.com/channels/${CH1_ID}/feeds.json?api_key=${CH1_READ}&results=${RESULTS}`;
+    const API_CH2 = `https://api.thingspeak.com/channels/${CH2_ID}/feeds.json?api_key=${CH2_READ}&results=${RESULTS}`;
+
+    /* ===== SENSOR METADATA — Matched to Your Arduino Code ===== */
+    const sensorMeta = [
+      { id:"pm10",     name:"PM10 (µg/m³)",     channel:1, field:"field1", low:50,  high:60   },
+      { id:"pm25",     name:"PM2.5 (µg/m³)",    channel:2, field:"field1", low:25,  high:35   },
+      { id:"so2",      name:"SO2 (PPM)",         channel:2, field:"field2", low:4,   high:5    },
+      { id:"light",    name:"Light (LUX)",       channel:2, field:"field3", low:400, high:1000 },
+      { id:"temp",     name:"Temperature (°C)",  channel:2, field:"field4", low:30,  high:35   },
+      { id:"humidity", name:"Humidity (%)",      channel:2, field:"field5", low:60,  high:70   },
+      { id:"h2s",      name:"H2S (PPM)",         channel:2, field:"field6", low:1.5, high:2    },
+      { id:"co2",      name:"CO2 (PPM)",         channel:2, field:"field7", low:450, high:500  },
+      { id:"nh3",      name:"NH3 (PPM)",         channel:2, field:"field8", low:6,   high:8    }
+    ];
+
+    let chartInstances = {};
+
+    function getStatus(value, low, high) {
+      if (value < low)   return { level:"LOW",    class:"low"    };
+      if (value <= high) return { level:"MEDIUM", class:"medium" };
+      return                    { level:"HIGH",   class:"high"   };
+    }
+
+    /* ================= FETCH & RENDER ================= */
+    async function fetchAndRender() {
+      const statusBar = document.getElementById("statusBar");
+      try {
+        const [res1, res2]   = await Promise.all([fetch(API_CH1), fetch(API_CH2)]);
+        const [json1, json2] = await Promise.all([res1.json(), res2.json()]);
+
+        const feeds1 = json1.feeds;
+        const feeds2 = json2.feeds;
+
+        const timeLabels1 = feeds1.map(f =>
+          new Date(f.created_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+        );
+        const timeLabels2 = feeds2.map(f =>
+          new Date(f.created_at).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+        );
+
+        const dashboard          = document.getElementById("dashboard");
+        const recommendationList = document.getElementById("recommendationList");
+        recommendationList.innerHTML = "";
+
+        sensorMeta.forEach(sensor => {
+          const feeds      = sensor.channel === 1 ? feeds1      : feeds2;
+          const timeLabels = sensor.channel === 1 ? timeLabels1 : timeLabels2;
+          const data       = feeds.map(f => parseFloat(f[sensor.field]) || 0);
+          const latest     = data[data.length - 1];
+          const status     = getStatus(latest, sensor.low, sensor.high);
+
+          // Update existing badge
+          const badge = document.getElementById("badge-" + sensor.id);
+          if (badge) {
+            badge.className   = "status " + status.class;
+            badge.textContent = status.level;
+          }
+
+          // Update existing chart or create new card
+          if (chartInstances[sensor.id]) {
+            chartInstances[sensor.id].data.labels           = timeLabels;
+            chartInstances[sensor.id].data.datasets[0].data = data;
+            chartInstances[sensor.id].update();
+          } else {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+              <h3>${sensor.name}</h3>
+              <div class="threshold-info">
+                LOW &lt; ${sensor.low} | MEDIUM ${sensor.low} – ${sensor.high} | HIGH &gt; ${sensor.high}
+              </div>
+              <span class="status ${status.class}" id="badge-${sensor.id}">${status.level}</span>
+              <canvas id="${sensor.id}"></canvas>
+            `;
+            dashboard.appendChild(card);
+
+            chartInstances[sensor.id] = new Chart(document.getElementById(sensor.id), {
+              type: 'line',
+              data: {
+                labels: timeLabels,
+                datasets: [{
+                  data: data,
+                  borderColor: "#2a5298",
+                  backgroundColor: "rgba(42,82,152,0.08)",
+                  tension: 0.4,
+                  fill: true,
+                  pointRadius: 4,
+                  pointBackgroundColor: "#2a5298"
+                }]
+              },
+              options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { title: { display: true, text: "Time" } },
+                  y: { title: { display: true, text: sensor.name } }
+                }
+              }
+            });
+          }
+
+          if (status.level === "HIGH") {
+            const li = document.createElement("li");
+            li.textContent = sensor.name + " exceeds safe threshold. Immediate action required.";
+            recommendationList.appendChild(li);
+          }
+        });
+
+        const now = new Date().toLocaleTimeString();
+        statusBar.textContent = `✅ Last updated: ${now} — Auto-refreshes every 20 seconds`;
+        statusBar.style.color = "#1e7a1e";
+
+      } catch (err) {
+        statusBar.textContent = "❌ Failed to fetch data. Check API Keys and Channel IDs.";
+        statusBar.style.color = "#c0392b";
+        console.error(err);
+      }
+
+      setTimeout(fetchAndRender, REFRESH_MS);
+    }
+
+    function createDashboard() {
+      fetchAndRender();
+    }
+  </script>
+
+</body>
+</html>
